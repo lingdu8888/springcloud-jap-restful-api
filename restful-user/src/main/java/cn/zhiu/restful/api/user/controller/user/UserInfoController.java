@@ -17,6 +17,7 @@ import cn.zhiu.framework.restful.api.core.exception.user.UserNotFoundException;
 import cn.zhiu.restful.api.user.bean.ChangePwd;
 import cn.zhiu.restful.api.user.exception.UserExistsException;
 import cn.zhiu.restful.api.user.exception.UserPasswordException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
@@ -33,6 +34,7 @@ import java.util.Objects;
 @RequestMapping("/user")
 public class UserInfoController extends AbstractBaseController {
 
+    @Autowired
     private UserInfoApiService userInfoApiService;
 
     @RequestMapping(value = "/register", method = RequestMethod.POST)
