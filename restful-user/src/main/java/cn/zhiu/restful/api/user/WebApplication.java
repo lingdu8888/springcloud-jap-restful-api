@@ -5,3 +5,4 @@ import cn.zhiu.framework.restful.api.core.Main;
 public class WebApplication extends Main {
 
 }
+
