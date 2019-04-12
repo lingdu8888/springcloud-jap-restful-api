@@ -65,16 +65,18 @@ public class UserInfoController extends AbstractBaseController {
     }
 
     @RequestMapping(value = "/updateUserInfo", method = RequestMethod.PUT)
-    public DataResponse<Boolean> updateUserInfo(@RequestBody UserInfo userInfo) {
+    public DataResponse<Boolean> updateUserInfo(@RequestBody UserInfoRequest userInfo) {
 
-        userInfoApiService.save(userInfo);
+        userInfoApiService.save(BeanMapping.map(userInfo, UserInfo.class));
         return new DataResponse<>();
     }
 
     @RequestMapping(value = "updateUserStat", method = RequestMethod.PUT)
-    public DataResponse<Boolean> updateUserStat(@RequestBody UserInfo userInfo) {
-        // TODO zhuzhzh  date  任务：？？？
-        userInfoApiService.save(userInfo);
+    public DataResponse<Boolean> updateUserStat(@RequestBody UserInfoRequest userInfo) {
+        UserInfo info = new UserInfo();
+        info.setUserId(userInfo.getUserId());
+        info.setStatus(userInfo.getStatus());
+        userInfoApiService.save(info);
         return new DataResponse<>();
     }
 
@@ -85,6 +87,7 @@ public class UserInfoController extends AbstractBaseController {
     }
 
 
+    @Deprecated
     @RequestMapping(value = "/userDetail", method = RequestMethod.GET)
     public CollectionResponse<UserInfoResponse> userDetail() {
         List<UserInfoResponse> all = userInfoApiService.findAll();
@@ -106,6 +109,7 @@ public class UserInfoController extends AbstractBaseController {
     }
 
 
+    @Deprecated
     @RequestMapping(value = "/list", method = RequestMethod.GET)
     public PageResponse<UserInfoResponse> list(@RequestParam(defaultValue = "0") Integer page, @RequestParam(defaultValue = "0") Integer size) {
 
