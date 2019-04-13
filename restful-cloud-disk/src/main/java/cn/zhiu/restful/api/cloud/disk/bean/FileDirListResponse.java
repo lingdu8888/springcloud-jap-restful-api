@@ -13,16 +13,16 @@ import java.util.List;
  */
 public class FileDirListResponse implements Serializable {
 
-    private List<UserFile> file;
+    private List<UserFileResponse> file;
 
     private List<UserDirectory> dir;
 
 
-    public List<UserFile> getFile() {
+    public List<UserFileResponse> getFile() {
         return file;
     }
 
-    public void setFile(List<UserFile> file) {
+    public void setFile(List<UserFileResponse> file) {
         this.file = file;
     }
 
@@ -33,4 +33,5 @@ public class FileDirListResponse implements Serializable {
     public void setDir(List<UserDirectory> dir) {
         this.dir = dir;
     }
+
 }

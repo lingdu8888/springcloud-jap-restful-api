@@ -1,17 +1,21 @@
 package cn.zhiu.restful.api.cloud.disk.service;
 
 import cn.zhiu.base.api.cloud.disk.bean.directory.UserDirectory;
+import cn.zhiu.base.api.cloud.disk.bean.file.QUserFile;
 import cn.zhiu.base.api.cloud.disk.bean.file.UserFile;
 import cn.zhiu.base.api.cloud.disk.service.directory.UserDirectoryApiService;
 import cn.zhiu.base.api.cloud.disk.service.file.UserFileApiService;
 import cn.zhiu.bean.cloud.disk.entity.enums.file.Status;
+import cn.zhiu.framework.base.api.core.request.ApiRequest;
 import cn.zhiu.framework.base.api.core.service.impl.AbstractBaseApiServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * @Auther: yujuan
@@ -30,25 +34,26 @@ public class CloudDiskServiceImpl extends AbstractBaseApiServiceImpl implements 
 
 
     @Override
-    public void deleteToRecycle(List<Long> dirIdsList, List<Long> fileIdsList) {
+    public void recycle(List<Long> dirIdsList, List<Long> fileIdsList, Status status) {
+        List<UserFile> userFileList = new ArrayList<>();
         if (!CollectionUtils.isEmpty(dirIdsList)) {
             List<UserDirectory> directoryList = new ArrayList<>();
             UserDirectory userDirectory;
             for (Long id : dirIdsList) {
-                userDirectory = new UserDirectory();
-                userDirectory.setId(id);
-                userDirectory.setStatus(Status.RECYCLE);
+                userDirectory = userDirectoryApiService.get(id);
+                userDirectory.setStatus(status);
                 directoryList.add(userDirectory);
             }
+            List<UserFile> userFileAll = userFileApiService.findAll(ApiRequest.newInstance().filterIn(QUserFile.dirId, dirIdsList));
+            userFileAll.forEach(a -> a.setStatus(status));
+            userFileList.addAll(userFileAll);
             userDirectoryApiService.updateBatch(directoryList);
         }
         if (!CollectionUtils.isEmpty(fileIdsList)) {
-            List<UserFile> userFileList = new ArrayList<>();
             UserFile userFile;
-            for (Long id : dirIdsList) {
-                userFile = new UserFile();
-                userFile.setId(id);
-                userFile.setStatus(Status.RECYCLE);
+            for (Long id : fileIdsList) {
+                userFile = userFileApiService.get(id);
+                userFile.setStatus(status);
                 userFileList.add(userFile);
             }
             userFileApiService.updateBatch(userFileList);
@@ -57,12 +62,18 @@ public class CloudDiskServiceImpl extends AbstractBaseApiServiceImpl implements 
 
     @Override
     public void deleteThoroughly(List<Long> dirIdsList, List<Long> fileIdsList) {
+        List<Long> userFileList = new ArrayList<>();
         if (!CollectionUtils.isEmpty(dirIdsList)) {
             userDirectoryApiService.deleteBatch(dirIdsList);
+            List<Long> userFileAll = userFileApiService.findAll(ApiRequest.newInstance().filterIn(QUserFile.dirId, dirIdsList)).stream().map(UserFile::getId).collect(Collectors.toList());
+            userFileList.addAll(userFileAll);
         }
 
         if (!CollectionUtils.isEmpty(fileIdsList)) {
-            userFileApiService.deleteBatch(fileIdsList);
+            userFileList.addAll(fileIdsList);
+        }
+        if (!CollectionUtils.isEmpty(userFileList)) {
+            userFileApiService.deleteBatch(userFileList);
         }
     }
 }

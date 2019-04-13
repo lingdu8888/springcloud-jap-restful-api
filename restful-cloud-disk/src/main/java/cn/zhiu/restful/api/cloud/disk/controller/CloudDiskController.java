@@ -4,20 +4,26 @@ import cn.zhiu.base.api.cloud.disk.bean.directory.QUserDirectory;
 import cn.zhiu.base.api.cloud.disk.bean.directory.UserDirectory;
 import cn.zhiu.base.api.cloud.disk.bean.file.QUserFile;
 import cn.zhiu.base.api.cloud.disk.bean.file.UserFile;
+import cn.zhiu.base.api.cloud.disk.bean.operation.QUserOperation;
+import cn.zhiu.base.api.cloud.disk.bean.operation.UserOperation;
 import cn.zhiu.base.api.cloud.disk.service.directory.UserDirectoryApiService;
 import cn.zhiu.base.api.cloud.disk.service.file.UserFileApiService;
+import cn.zhiu.base.api.cloud.disk.service.operation.UserOperationApiService;
+import cn.zhiu.bean.cloud.disk.entity.enums.file.Status;
+import cn.zhiu.bean.cloud.disk.entity.enums.operation.FileOperationStatus;
 import cn.zhiu.framework.base.api.core.constant.RequestHeaderConstants;
 import cn.zhiu.framework.base.api.core.request.ApiRequest;
+import cn.zhiu.framework.base.api.core.util.BeanMapping;
 import cn.zhiu.framework.restful.api.core.bean.response.DataResponse;
 import cn.zhiu.framework.restful.api.core.controller.AbstractBaseController;
 import cn.zhiu.restful.api.cloud.disk.bean.*;
 import cn.zhiu.restful.api.cloud.disk.service.CloudDiskService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * @Auther: yujuan
@@ -35,6 +41,8 @@ public class CloudDiskController extends AbstractBaseController {
     @Autowired
     UserFileApiService userFileApiService;
 
+    @Autowired
+    UserOperationApiService userOperationApiService;
 
     @Autowired
     CloudDiskService cloudDiskService;
@@ -46,19 +54,26 @@ public class CloudDiskController extends AbstractBaseController {
      * @return
      */
     @RequestMapping(value = "/directory", method = RequestMethod.POST)
-    public DataResponse<UserDirectory> save(@RequestBody CreateDirectoryRequest request) {
+    public DataResponse save(@RequestBody CreateDirectoryRequest request) {
         String currentUserId = getHeader(RequestHeaderConstants.ACCESS_USERID);
         Objects.requireNonNull(currentUserId, "当前用户未登录");
         Objects.requireNonNull(request);
         Objects.requireNonNull(request.getId(), "所属文件夹不能为空！");
         Objects.requireNonNull(request.getDirectoryName(), "文件夹名称不能为空！");
-        UserDirectory userDirectory = userDirectoryApiService.get(request.getId());
-        Objects.requireNonNull(request, "父级目录不存在");
+        String path = "/";
+        if (request.getId() != -1) {
+            UserDirectory userDirectory = userDirectoryApiService.get(request.getId());
+            path = userDirectory.getPath();
+        }
+        ApiRequest apiRequest = ApiRequest.newInstance().filterEqual(QUserDirectory.parentId, request.getId()).filterEqual(QUserDirectory.userId, currentUserId);
+
+        List<UserDirectory> all = userDirectoryApiService.findAll(apiRequest);
+        List<String> fileNameList = all.stream().map(UserDirectory::getDirectoryName).collect(Collectors.toList());
         UserDirectory saveModel = new UserDirectory();
         saveModel.setUserId(currentUserId);
         saveModel.setParentId(request.getId());
-        saveModel.setDirectionName(getNotExistDirectoryName(request.getId(), currentUserId, request.getDirectoryName()));
-        saveModel.setPath(userDirectory.getPath());
+        saveModel.setDirectoryName(getNotExistName(fileNameList, request.getDirectoryName()));
+        saveModel.setPath(path);
         saveModel = userDirectoryApiService.save(saveModel);
         return new DataResponse<>(saveModel);
     }
@@ -70,10 +85,23 @@ public class CloudDiskController extends AbstractBaseController {
      * @return
      */
     @RequestMapping(value = "/deleteToRecycle", method = RequestMethod.PUT)
-    public DataResponse<Boolean> deleteToRecycle(@RequestBody DeleteRequest request) {
-        cloudDiskService.deleteToRecycle(request.getDir(), request.getFile());
+    public DataResponse deleteToRecycle(@RequestBody DeleteRequest request) {
+        cloudDiskService.recycle(request.getDir(), request.getFile(), Status.RECYCLE);
         return new DataResponse<>();
     }
+
+    /**
+     * 回收站撤回
+     *
+     * @param request
+     * @return
+     */
+    @RequestMapping(value = "/backToRecycle", method = RequestMethod.PUT)
+    public DataResponse backToRecycle(@RequestBody DeleteRequest request) {
+        cloudDiskService.recycle(request.getDir(), request.getFile(), Status.NORMAL);
+        return new DataResponse<>();
+    }
+
 
     /**
      * 彻底删除文件或者文件夹
@@ -82,7 +110,7 @@ public class CloudDiskController extends AbstractBaseController {
      * @return
      */
     @RequestMapping(value = "/deleteThoroughly", method = RequestMethod.PUT)
-    public DataResponse<Boolean> deleteThoroughly(@RequestBody DeleteRequest request) {
+    public DataResponse deleteThoroughly(@RequestBody DeleteRequest request) {
         cloudDiskService.deleteThoroughly(request.getDir(), request.getFile());
         return new DataResponse<>();
     }
@@ -94,21 +122,16 @@ public class CloudDiskController extends AbstractBaseController {
      * @return
      */
     @RequestMapping(value = "/get", method = RequestMethod.GET)
-    public DataResponse<FileDirListResponse> get(@RequestParam("id") Long id) {
+    public DataResponse get(@RequestParam("id") Long id) {
         String currentUserId = getHeader(RequestHeaderConstants.ACCESS_USERID);
         Objects.requireNonNull(currentUserId, "当前用户未登录");
-        ApiRequest dirApiRequest = ApiRequest.newInstance();
-        dirApiRequest.conditionEqual(QUserDirectory.parentId, id);
-        List<UserDirectory> directoryList = userDirectoryApiService.findAll(dirApiRequest);
-
-        ApiRequest fileApiRequest = ApiRequest.newInstance();
-        fileApiRequest.conditionEqual(QUserFile.dirId, id);
-        List<UserFile> fileList = userFileApiService.findAll(fileApiRequest);
-
+        List<UserDirectory> directoryList = userDirectoryApiService.findAll(ApiRequest.newInstance().filterEqual(QUserDirectory.parentId, id));
+        List<UserFile> fileList = userFileApiService.findAll(ApiRequest.newInstance().filterEqual(QUserFile.dirId, id));
+        List<UserFileResponse> userFileResponseList = BeanMapping.mapList(fileList, UserFileResponse.class);
+        userFileResponseList.forEach(a -> a.setUserOperationResponseList(BeanMapping.mapList(userOperationApiService.findAll(ApiRequest.newInstance().filterEqual(QUserOperation.fileId, a.getFileId())), UserOperationResponse.class)));
         FileDirListResponse fileDirListResponse = new FileDirListResponse();
         fileDirListResponse.setDir(directoryList);
-        fileDirListResponse.setFile(fileList);
-
+        fileDirListResponse.setFile(userFileResponseList);
         return new DataResponse<>(fileDirListResponse);
     }
 
@@ -119,10 +142,13 @@ public class CloudDiskController extends AbstractBaseController {
      * @return
      */
     @RequestMapping(value = "/upload", method = RequestMethod.POST)
-    public DataResponse<UserFile> upload(@RequestBody UserFile userFile) {
+    public DataResponse upload(@RequestBody UserFile userFile) {
         String currentUserId = getHeader(RequestHeaderConstants.ACCESS_USERID);
         Objects.requireNonNull(currentUserId, "当前用户未登录");
         userFile.setUserId(currentUserId);
+        ApiRequest apiRequest = ApiRequest.newInstance().filterEqual(QUserFile.dirId, userFile.getDirId()).filterEqual(QUserFile.userId, currentUserId);
+        List<String> fileNameList = userFileApiService.findAll(apiRequest).stream().map(UserFile::getFileName).collect(Collectors.toList());
+        userFile.setFileName(getNotExistName(fileNameList, userFile.getFileName()));
         userFileApiService.save(userFile);
         return new DataResponse<>();
     }
@@ -130,6 +156,7 @@ public class CloudDiskController extends AbstractBaseController {
 
     /**
      * 文件重命名
+     *
      * @param request
      * @return
      */
@@ -137,29 +164,46 @@ public class CloudDiskController extends AbstractBaseController {
     public DataResponse<UserFile> fileRename(@RequestBody FileRenameRequest request) {
         String currentUserId = getHeader(RequestHeaderConstants.ACCESS_USERID);
         Objects.requireNonNull(currentUserId, "当前用户未登录");
-        UserFile userFile = new UserFile();
-        userFile.setUserId(currentUserId);
-        userFile.setFileName(getNotExistFileName(request.getDirId(), currentUserId, request.getFileName()));
+        ApiRequest apiRequest = ApiRequest.newInstance().filterEqual(QUserFile.dirId, request.getDirId()).filterEqual(QUserFile.userId, currentUserId).filterNotEqual(QUserFile.id, request.getId());
+        List<String> fileNameList = userFileApiService.findAll(apiRequest).stream().map(UserFile::getFileName).collect(Collectors.toList());
+        UserFile userFile = userFileApiService.get(request.getId());
+        userFile.setFileName(getNotExistName(fileNameList, request.getFileName()));
         userFile = userFileApiService.update(userFile);
         return new DataResponse<>(userFile);
     }
 
     /**
      * 文件夹重命名
+     *
      * @param request
      * @return
      */
-    @RequestMapping(value = "directory/rename",method = RequestMethod.PUT)
-    public DataResponse<UserDirectory> directoryRename(@RequestBody DirectoryRenameRequest request) {
+    @RequestMapping(value = "/directory/rename", method = RequestMethod.PUT)
+    public DataResponse directoryRename(@RequestBody DirectoryRenameRequest request) {
         String currentUserId = getHeader(RequestHeaderConstants.ACCESS_USERID);
         Objects.requireNonNull(currentUserId, "当前用户未登录");
-        UserDirectory userDirectory = new UserDirectory();
-        userDirectory.setUserId(currentUserId);
-        userDirectory.setDirectionName(getNotExistFileName(request.getParentId(), currentUserId, request.getDirectoryName()));
+        ApiRequest apiRequest = ApiRequest.newInstance().filterEqual(QUserDirectory.parentId, request.getParentId()).filterEqual(QUserDirectory.userId, currentUserId).filterNotEqual(QUserDirectory.id, request.getId());
+        List<String> fileNameList = userDirectoryApiService.findAll(apiRequest).stream().map(UserDirectory::getDirectoryName).collect(Collectors.toList());
+        UserDirectory userDirectory = userDirectoryApiService.get(request.getId());
+        userDirectory.setDirectoryName(getNotExistName(fileNameList, request.getDirectoryName()));
         userDirectory = userDirectoryApiService.update(userDirectory);
         return new DataResponse<>(userDirectory);
     }
 
+
+    @RequestMapping(value = "/file/operation", method = RequestMethod.POST)
+    public DataResponse<Boolean> fileOperation(@RequestBody FileOperationRequest request) {
+        String currentUserId = getHeader(RequestHeaderConstants.ACCESS_USERID);
+        Objects.requireNonNull(currentUserId, "当前用户未登录");
+        UserOperation userOperation = new UserOperation();
+        userOperation.setUserId(currentUserId);
+        userOperation.setType(request.getType());
+        userOperation.setStatus(FileOperationStatus.PROCESSING);
+        userOperation.setFileId(request.getFileId());
+        userOperationApiService.save(userOperation);
+        //TODO 发送消息到文件服务器
+        return new DataResponse<>();
+    }
 
 
     /**
@@ -167,75 +211,53 @@ public class CloudDiskController extends AbstractBaseController {
      *
      * @return
      */
-    @RequestMapping(value = "/fuzzy", method = RequestMethod.POST)
-    public DataResponse<FileDirListResponse> fuzzy(@RequestBody FuzzyRequest request) {
+    @RequestMapping(value = "/fuzzy", method = RequestMethod.GET)
+    public DataResponse fuzzy(@RequestParam("id") Long id, @RequestParam("fuzzy") String fuzzy) {
         String currentUserId = getHeader(RequestHeaderConstants.ACCESS_USERID);
         Objects.requireNonNull(currentUserId, "当前用户未登录");
-        ApiRequest dirApiRequest = ApiRequest.newInstance();
-        dirApiRequest.conditionEqual(QUserDirectory.parentId, request.getId());
-        dirApiRequest.conditionEqual(QUserDirectory.userId, currentUserId);
-        dirApiRequest.like(QUserDirectory.directionName, request.getId());
+        ApiRequest dirApiRequest = ApiRequest.newInstance().filterEqual(QUserDirectory.parentId, id).filterEqual(QUserDirectory.userId, currentUserId).filterLike(QUserDirectory.directoryName, fuzzy);
 
         List<UserDirectory> directoryList = userDirectoryApiService.findAll(dirApiRequest);
 
-        ApiRequest fileApiRequest = ApiRequest.newInstance();
-        fileApiRequest.conditionEqual(QUserFile.dirId, id);
-        List<UserFile> fileList = userFileApiService.findAll(fileApiRequest);
-
+        List<UserFile> fileList = userFileApiService.findAll(ApiRequest.newInstance().filterEqual(QUserFile.userId, currentUserId).filterEqual(QUserFile.dirId, id).filterLike(QUserFile.fileName, fuzzy));
+        List<UserFileResponse> userFileResponseList = BeanMapping.mapList(fileList, UserFileResponse.class);
+        userFileResponseList.forEach(a -> a.setUserOperationResponseList(BeanMapping.mapList(userOperationApiService.findAll(ApiRequest.newInstance().filterEqual(QUserOperation.fileId, a.getFileId())), UserOperationResponse.class)));
         FileDirListResponse fileDirListResponse = new FileDirListResponse();
         fileDirListResponse.setDir(directoryList);
-        fileDirListResponse.setFile(fileList);
+        fileDirListResponse.setFile(userFileResponseList);
 
         return new DataResponse<>(fileDirListResponse);
     }
 
 
-
-
-    /**
-     * 根据新增的文件夹名称 检查是否与已有的文件夹冲突 有冲突则重命名
-     *
-     * @param parentId
-     * @param currentUserId
-     * @param directoryName
-     * @return
-     */
-    private String getNotExistDirectoryName(Long parentId, String currentUserId, String directoryName) {
-        ApiRequest apiRequest;
-        while (true) {
-            apiRequest = ApiRequest.newInstance();
-            apiRequest.conditionEqual(QUserDirectory.directionName, directoryName);
-            apiRequest.conditionEqual(QUserDirectory.userId, currentUserId);
-            apiRequest.conditionEqual(QUserDirectory.parentId, parentId);
-            List<UserDirectory> all = userDirectoryApiService.findAll(apiRequest);
-            if (CollectionUtils.isEmpty(all)) {
-                return directoryName;
-                //TODO 需要解决命名同一文件夹内命名重复的问题
-            }
-        }
-    }
-
     /**
      * 根据新增的文件名称 检查是否与已有的文件冲突 有冲突则重命名
      *
-     * @param dirId
-     * @param currentUserId
-     * @param fileName
+     * @param nameList
+     * @param name
      * @return
      */
-    private String getNotExistFileName(Long dirId, String currentUserId, String fileName) {
-        ApiRequest apiRequest;
+    private String getNotExistName(List<String> nameList, String name) {
+        //TODO 重命名规则 需要优化 需先判断是否有() 有的话 取（）里面的值 然后是数字的话 则加1
         while (true) {
-            apiRequest = ApiRequest.newInstance();
-            apiRequest.conditionEqual(QUserFile.fileName, fileName);
-            apiRequest.conditionEqual(QUserFile.userId, currentUserId);
-            apiRequest.conditionEqual(QUserFile.dirId, dirId);
-            List<UserFile> all = userFileApiService.findAll(apiRequest);
-            if (CollectionUtils.isEmpty(all)) {
-                return fileName;
-                //TODO 需要解决命名同一文件夹内命名重复的问题
+            if (!nameList.contains(name)) return name;
+            Integer left = name.lastIndexOf("(");
+            if (left == -1) {
+                return getNotExistName(nameList, name + "(1)");
+            }
+            Integer right = name.indexOf(")", left);
+            if (right == -1) {
+                return getNotExistName(nameList, name + "(1)");
+            }
+            String substring = name.substring(left + 1, right);
+            try {
+                Integer i = Integer.parseInt(substring) + 1;
+                return getNotExistName(nameList, name.substring(0, left) + "(" + i + ")");
+
+            } catch (ClassCastException e) {
+                return getNotExistName(nameList, name + "(1)");
             }
         }
     }
-
 }
+

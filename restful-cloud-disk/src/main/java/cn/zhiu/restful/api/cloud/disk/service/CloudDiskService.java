@@ -1,6 +1,8 @@
 package cn.zhiu.restful.api.cloud.disk.service;
 
 
+import cn.zhiu.bean.cloud.disk.entity.enums.file.Status;
+
 import java.util.List;
 
 /**
@@ -10,7 +12,8 @@ import java.util.List;
  */
 public interface CloudDiskService {
 
-    void deleteToRecycle(List<Long> dirIdsList, List<Long> fileIdsList);
+    void recycle(List<Long> dirIdsList, List<Long> fileIdsList, Status status);
+
 
     void deleteThoroughly(List<Long> dirIdsList, List<Long> fileIdsList);
 }
