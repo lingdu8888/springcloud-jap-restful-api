@@ -10,9 +10,7 @@
 
     <groupId>cn.zhiu</groupId>
     <artifactId>restful-user</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
     <name>restful-user</name>
-    <description>Demo project for Spring Boot</description>
 
 
     <dependencies>
@@ -74,6 +72,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
+                    <classifier>${branch}</classifier>
                     <includeSystemScope>true</includeSystemScope>
                     <mainClass>cn.zhiu.framework.restful.api.core.Main</mainClass>
                 </configuration>
