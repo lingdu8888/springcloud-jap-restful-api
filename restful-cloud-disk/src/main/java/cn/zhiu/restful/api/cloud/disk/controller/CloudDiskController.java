@@ -18,6 +18,7 @@ import cn.zhiu.framework.restful.api.core.bean.response.DataResponse;
 import cn.zhiu.framework.restful.api.core.controller.AbstractBaseController;
 import cn.zhiu.restful.api.cloud.disk.bean.*;
 import cn.zhiu.restful.api.cloud.disk.service.CloudDiskService;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -146,7 +147,7 @@ public class CloudDiskController extends AbstractBaseController {
         String currentUserId = getHeader(RequestHeaderConstants.ACCESS_USERID);
         Objects.requireNonNull(currentUserId, "当前用户未登录");
         userFile.setUserId(currentUserId);
-        ApiRequest apiRequest = ApiRequest.newInstance().filterEqual(QUserFile.dirId, userFile.getDirId()).filterEqual(QUserFile.userId, currentUserId);
+        ApiRequest apiRequest = ApiRequest.newInstance().filterEqual(QUserFile.dirId, userFile.getDirId()).filterEqual(QUserFile.userId, currentUserId).filterEqual(QUserFile.fileExtension, userFile.getFileExtension());
         List<String> fileNameList = userFileApiService.findAll(apiRequest).stream().map(UserFile::getFileName).collect(Collectors.toList());
         userFile.setFileName(getNotExistName(fileNameList, userFile.getFileName()));
         userFileApiService.save(userFile);
@@ -164,10 +165,13 @@ public class CloudDiskController extends AbstractBaseController {
     public DataResponse<UserFile> fileRename(@RequestBody FileRenameRequest request) {
         String currentUserId = getHeader(RequestHeaderConstants.ACCESS_USERID);
         Objects.requireNonNull(currentUserId, "当前用户未登录");
-        ApiRequest apiRequest = ApiRequest.newInstance().filterEqual(QUserFile.dirId, request.getDirId()).filterEqual(QUserFile.userId, currentUserId).filterNotEqual(QUserFile.id, request.getId());
+        ApiRequest apiRequest = ApiRequest.newInstance().filterEqual(QUserFile.dirId, request.getDirId()).filterEqual(QUserFile.userId, currentUserId).filterNotEqual(QUserFile.id, request.getId()).filterEqual(QUserFile.fileExtension, request.getFileExtension());
         List<String> fileNameList = userFileApiService.findAll(apiRequest).stream().map(UserFile::getFileName).collect(Collectors.toList());
         UserFile userFile = userFileApiService.get(request.getId());
         userFile.setFileName(getNotExistName(fileNameList, request.getFileName()));
+        if (!StringUtils.isBlank(request.getFileExtension())) {
+            userFile.setFileExtension(request.getFileExtension());
+        }
         userFile = userFileApiService.update(userFile);
         return new DataResponse<>(userFile);
     }
@@ -237,8 +241,7 @@ public class CloudDiskController extends AbstractBaseController {
      * @param name
      * @return
      */
-    private String getNotExistName(List<String> nameList, String name) {
-        //TODO 重命名规则 需要优化 需先判断是否有() 有的话 取（）里面的值 然后是数字的话 则加1
+    private static String getNotExistName(List<String> nameList, String name) {
         while (true) {
             if (!nameList.contains(name)) return name;
             Integer left = name.lastIndexOf("(");
@@ -249,6 +252,7 @@ public class CloudDiskController extends AbstractBaseController {
             if (right == -1) {
                 return getNotExistName(nameList, name + "(1)");
             }
+            if (right < name.length() - 1) return getNotExistName(nameList, name + "(1)");
             String substring = name.substring(left + 1, right);
             try {
                 Integer i = Integer.parseInt(substring) + 1;

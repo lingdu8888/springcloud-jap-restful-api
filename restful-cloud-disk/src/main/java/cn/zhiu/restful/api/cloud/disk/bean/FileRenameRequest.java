@@ -12,6 +12,7 @@ public class FileRenameRequest implements Serializable {
     private Long id;
     private Long dirId;
     private String fileName;
+    private String fileExtension;
 
 
     public Long getId() {
@@ -36,5 +37,13 @@ public class FileRenameRequest implements Serializable {
 
     public void setFileName(String fileName) {
         this.fileName = fileName;
+    }
+
+    public String getFileExtension() {
+        return fileExtension;
+    }
+
+    public void setFileExtension(String fileExtension) {
+        this.fileExtension = fileExtension;
     }
 }
