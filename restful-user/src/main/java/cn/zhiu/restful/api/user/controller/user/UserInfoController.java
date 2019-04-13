@@ -48,7 +48,7 @@ public class UserInfoController extends AbstractBaseController {
         }
 
         UserInfo userInfo = new UserInfo();
-        userInfo.setPassword(request.getPassword());
+        userInfo.setPassword(MD5Util.encoderByMd5(request.getPassword()));
         userInfo.setAccount(request.getAccount());
 
         userInfo = userInfoApiService.save(userInfo);
