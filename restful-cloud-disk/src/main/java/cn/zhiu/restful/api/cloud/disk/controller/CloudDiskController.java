@@ -18,6 +18,7 @@ import cn.zhiu.framework.restful.api.core.bean.response.DataResponse;
 import cn.zhiu.framework.restful.api.core.controller.AbstractBaseController;
 import cn.zhiu.restful.api.cloud.disk.bean.*;
 import cn.zhiu.restful.api.cloud.disk.service.CloudDiskService;
+import com.alibaba.druid.support.spring.stat.annotation.Stat;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -103,6 +104,25 @@ public class CloudDiskController extends AbstractBaseController {
         return new DataResponse<>();
     }
 
+    /**
+     * 获取回收站列表
+     *
+     * @return
+     */
+    @RequestMapping(value = "/recycle/get", method = RequestMethod.GET)
+    public DataResponse recycleGet() {
+        String currentUserId = getHeader(RequestHeaderConstants.ACCESS_USERID);
+        Objects.requireNonNull(currentUserId, "当前用户未登录");
+        List<UserDirectory> directoryList = userDirectoryApiService.findAll(ApiRequest.newInstance().filterEqual(QUserDirectory.status, Status.RECYCLE.getValue()));
+        List<UserFile> fileList = userFileApiService.findAll(ApiRequest.newInstance().filterEqual(QUserFile.status, Status.RECYCLE.getValue()));
+        List<UserFileResponse> userFileResponseList = BeanMapping.mapList(fileList, UserFileResponse.class);
+        userFileResponseList.forEach(a -> a.setUserOperationResponseList(BeanMapping.mapList(userOperationApiService.findAll(ApiRequest.newInstance().filterEqual(QUserOperation.fileId, a.getFileId())), UserOperationResponse.class)));
+        FileDirListResponse fileDirListResponse = new FileDirListResponse();
+        fileDirListResponse.setDir(directoryList);
+        fileDirListResponse.setFile(userFileResponseList);
+        return new DataResponse<>(fileDirListResponse);
+    }
+
 
     /**
      * 彻底删除文件或者文件夹
@@ -126,8 +146,8 @@ public class CloudDiskController extends AbstractBaseController {
     public DataResponse get(@RequestParam("id") Long id) {
         String currentUserId = getHeader(RequestHeaderConstants.ACCESS_USERID);
         Objects.requireNonNull(currentUserId, "当前用户未登录");
-        List<UserDirectory> directoryList = userDirectoryApiService.findAll(ApiRequest.newInstance().filterEqual(QUserDirectory.parentId, id));
-        List<UserFile> fileList = userFileApiService.findAll(ApiRequest.newInstance().filterEqual(QUserFile.dirId, id));
+        List<UserDirectory> directoryList = userDirectoryApiService.findAll(ApiRequest.newInstance().filterEqual(QUserDirectory.parentId, id).filterEqual(QUserDirectory.status, Status.NORMAL.getValue()));
+        List<UserFile> fileList = userFileApiService.findAll(ApiRequest.newInstance().filterEqual(QUserFile.dirId, id).filterEqual(QUserFile.status, Status.NORMAL.getValue()));
         List<UserFileResponse> userFileResponseList = BeanMapping.mapList(fileList, UserFileResponse.class);
         userFileResponseList.forEach(a -> a.setUserOperationResponseList(BeanMapping.mapList(userOperationApiService.findAll(ApiRequest.newInstance().filterEqual(QUserOperation.fileId, a.getFileId())), UserOperationResponse.class)));
         FileDirListResponse fileDirListResponse = new FileDirListResponse();
@@ -219,11 +239,11 @@ public class CloudDiskController extends AbstractBaseController {
     public DataResponse fuzzy(@RequestParam("id") Long id, @RequestParam("fuzzy") String fuzzy) {
         String currentUserId = getHeader(RequestHeaderConstants.ACCESS_USERID);
         Objects.requireNonNull(currentUserId, "当前用户未登录");
-        ApiRequest dirApiRequest = ApiRequest.newInstance().filterEqual(QUserDirectory.parentId, id).filterEqual(QUserDirectory.userId, currentUserId).filterLike(QUserDirectory.directoryName, fuzzy);
+        ApiRequest dirApiRequest = ApiRequest.newInstance().filterEqual(QUserDirectory.parentId, id).filterEqual(QUserDirectory.userId, currentUserId).filterLike(QUserDirectory.directoryName, fuzzy).filterEqual(QUserDirectory.status, Status.NORMAL.getValue());
 
         List<UserDirectory> directoryList = userDirectoryApiService.findAll(dirApiRequest);
 
-        List<UserFile> fileList = userFileApiService.findAll(ApiRequest.newInstance().filterEqual(QUserFile.userId, currentUserId).filterEqual(QUserFile.dirId, id).filterLike(QUserFile.fileName, fuzzy));
+        List<UserFile> fileList = userFileApiService.findAll(ApiRequest.newInstance().filterEqual(QUserFile.userId, currentUserId).filterEqual(QUserFile.dirId, id).filterLike(QUserFile.fileName, fuzzy).filterEqual(QUserFile.status, Status.NORMAL.getValue()));
         List<UserFileResponse> userFileResponseList = BeanMapping.mapList(fileList, UserFileResponse.class);
         userFileResponseList.forEach(a -> a.setUserOperationResponseList(BeanMapping.mapList(userOperationApiService.findAll(ApiRequest.newInstance().filterEqual(QUserOperation.fileId, a.getFileId())), UserOperationResponse.class)));
         FileDirListResponse fileDirListResponse = new FileDirListResponse();
