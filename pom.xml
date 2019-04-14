@@ -16,9 +16,7 @@
         <module>restful-cloud-disk</module>
     </modules>
 
-
     <dependencies>
-
         <dependency>
             <groupId>cn.zhiu</groupId>
             <artifactId>zhiu-base-core</artifactId>
