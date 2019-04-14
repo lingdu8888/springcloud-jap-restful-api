@@ -11,14 +11,12 @@ import cn.zhiu.base.api.cloud.disk.service.file.UserFileApiService;
 import cn.zhiu.base.api.cloud.disk.service.operation.UserOperationApiService;
 import cn.zhiu.bean.cloud.disk.entity.enums.file.Status;
 import cn.zhiu.bean.cloud.disk.entity.enums.operation.FileOperationStatus;
-import cn.zhiu.framework.base.api.core.constant.RequestHeaderConstants;
 import cn.zhiu.framework.base.api.core.request.ApiRequest;
 import cn.zhiu.framework.base.api.core.util.BeanMapping;
 import cn.zhiu.framework.restful.api.core.bean.response.DataResponse;
 import cn.zhiu.framework.restful.api.core.controller.AbstractBaseController;
 import cn.zhiu.restful.api.cloud.disk.bean.*;
 import cn.zhiu.restful.api.cloud.disk.service.CloudDiskService;
-import com.alibaba.druid.support.spring.stat.annotation.Stat;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -49,6 +47,9 @@ public class CloudDiskController extends AbstractBaseController {
     @Autowired
     CloudDiskService cloudDiskService;
 
+    public static final String ACCESS_USERID = "Access-UserId";
+
+
     /**
      * 新建文件夹接口
      *
@@ -57,7 +58,7 @@ public class CloudDiskController extends AbstractBaseController {
      */
     @RequestMapping(value = "/directory", method = RequestMethod.POST)
     public DataResponse save(@RequestBody CreateDirectoryRequest request) {
-        String currentUserId = getHeader(RequestHeaderConstants.ACCESS_USERID);
+        String currentUserId = getHeader(ACCESS_USERID);
         Objects.requireNonNull(currentUserId, "当前用户未登录");
         Objects.requireNonNull(request);
         Objects.requireNonNull(request.getId(), "所属文件夹不能为空！");
@@ -111,7 +112,7 @@ public class CloudDiskController extends AbstractBaseController {
      */
     @RequestMapping(value = "/recycle/get", method = RequestMethod.GET)
     public DataResponse recycleGet() {
-        String currentUserId = getHeader(RequestHeaderConstants.ACCESS_USERID);
+        String currentUserId = getHeader(ACCESS_USERID);
         Objects.requireNonNull(currentUserId, "当前用户未登录");
         List<UserDirectory> directoryList = userDirectoryApiService.findAll(ApiRequest.newInstance().filterEqual(QUserDirectory.status, Status.RECYCLE.getValue()));
         List<UserFile> fileList = userFileApiService.findAll(ApiRequest.newInstance().filterEqual(QUserFile.status, Status.RECYCLE.getValue()));
@@ -144,7 +145,7 @@ public class CloudDiskController extends AbstractBaseController {
      */
     @RequestMapping(value = "/get", method = RequestMethod.GET)
     public DataResponse get(@RequestParam("id") Long id) {
-        String currentUserId = getHeader(RequestHeaderConstants.ACCESS_USERID);
+        String currentUserId = getHeader(ACCESS_USERID);
         Objects.requireNonNull(currentUserId, "当前用户未登录");
         List<UserDirectory> directoryList = userDirectoryApiService.findAll(ApiRequest.newInstance().filterEqual(QUserDirectory.parentId, id).filterEqual(QUserDirectory.status, Status.NORMAL.getValue()));
         List<UserFile> fileList = userFileApiService.findAll(ApiRequest.newInstance().filterEqual(QUserFile.dirId, id).filterEqual(QUserFile.status, Status.NORMAL.getValue()));
@@ -164,7 +165,7 @@ public class CloudDiskController extends AbstractBaseController {
      */
     @RequestMapping(value = "/upload", method = RequestMethod.POST)
     public DataResponse upload(@RequestBody UserFile userFile) {
-        String currentUserId = getHeader(RequestHeaderConstants.ACCESS_USERID);
+        String currentUserId = getHeader(ACCESS_USERID);
         Objects.requireNonNull(currentUserId, "当前用户未登录");
         userFile.setUserId(currentUserId);
         ApiRequest apiRequest = ApiRequest.newInstance().filterEqual(QUserFile.dirId, userFile.getDirId()).filterEqual(QUserFile.userId, currentUserId).filterEqual(QUserFile.fileExtension, userFile.getFileExtension());
@@ -183,7 +184,7 @@ public class CloudDiskController extends AbstractBaseController {
      */
     @RequestMapping(value = "/file/rename", method = RequestMethod.PUT)
     public DataResponse<UserFile> fileRename(@RequestBody FileRenameRequest request) {
-        String currentUserId = getHeader(RequestHeaderConstants.ACCESS_USERID);
+        String currentUserId = getHeader(ACCESS_USERID);
         Objects.requireNonNull(currentUserId, "当前用户未登录");
         ApiRequest apiRequest = ApiRequest.newInstance().filterEqual(QUserFile.dirId, request.getDirId()).filterEqual(QUserFile.userId, currentUserId).filterNotEqual(QUserFile.id, request.getId()).filterEqual(QUserFile.fileExtension, request.getFileExtension());
         List<String> fileNameList = userFileApiService.findAll(apiRequest).stream().map(UserFile::getFileName).collect(Collectors.toList());
@@ -204,7 +205,7 @@ public class CloudDiskController extends AbstractBaseController {
      */
     @RequestMapping(value = "/directory/rename", method = RequestMethod.PUT)
     public DataResponse directoryRename(@RequestBody DirectoryRenameRequest request) {
-        String currentUserId = getHeader(RequestHeaderConstants.ACCESS_USERID);
+        String currentUserId = getHeader(ACCESS_USERID);
         Objects.requireNonNull(currentUserId, "当前用户未登录");
         ApiRequest apiRequest = ApiRequest.newInstance().filterEqual(QUserDirectory.parentId, request.getParentId()).filterEqual(QUserDirectory.userId, currentUserId).filterNotEqual(QUserDirectory.id, request.getId());
         List<String> fileNameList = userDirectoryApiService.findAll(apiRequest).stream().map(UserDirectory::getDirectoryName).collect(Collectors.toList());
@@ -217,7 +218,7 @@ public class CloudDiskController extends AbstractBaseController {
 
     @RequestMapping(value = "/file/operation", method = RequestMethod.POST)
     public DataResponse<Boolean> fileOperation(@RequestBody FileOperationRequest request) {
-        String currentUserId = getHeader(RequestHeaderConstants.ACCESS_USERID);
+        String currentUserId = getHeader(ACCESS_USERID);
         Objects.requireNonNull(currentUserId, "当前用户未登录");
         UserOperation userOperation = new UserOperation();
         userOperation.setUserId(currentUserId);
@@ -237,7 +238,7 @@ public class CloudDiskController extends AbstractBaseController {
      */
     @RequestMapping(value = "/fuzzy", method = RequestMethod.GET)
     public DataResponse fuzzy(@RequestParam("id") Long id, @RequestParam("fuzzy") String fuzzy) {
-        String currentUserId = getHeader(RequestHeaderConstants.ACCESS_USERID);
+        String currentUserId = getHeader(ACCESS_USERID);
         Objects.requireNonNull(currentUserId, "当前用户未登录");
         ApiRequest dirApiRequest = ApiRequest.newInstance().filterEqual(QUserDirectory.parentId, id).filterEqual(QUserDirectory.userId, currentUserId).filterLike(QUserDirectory.directoryName, fuzzy).filterEqual(QUserDirectory.status, Status.NORMAL.getValue());
 
