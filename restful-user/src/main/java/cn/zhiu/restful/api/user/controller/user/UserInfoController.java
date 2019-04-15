@@ -36,6 +36,16 @@ public class UserInfoController extends AbstractBaseController {
     @Autowired
     private UserInfoApiService userInfoApiService;
 
+    /**
+     * Register data response.
+     *
+     * @param request the request
+     *
+     * @return the data response
+     *
+     * @author zhuzz
+     * @time 2019 /04/15 12:05:23
+     */
     @RequestMapping(value = "/register", method = RequestMethod.POST)
     public DataResponse<UserRegisterResponse> register(@RequestBody UserRegisterRequest request) {
         Objects.requireNonNull(request);

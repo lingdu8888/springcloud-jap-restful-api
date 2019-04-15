@@ -8,9 +8,9 @@
 
     <appender name="file"
               class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>./logs/${project.name}-service.log</file>
+        <file>../logs/${project.name}-service.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <FileNamePattern>./logs/${project.name}-service-%d{yyyy-MM-dd}.log</FileNamePattern>
+            <FileNamePattern>../logs/${project.name}-service-%d{yyyy-MM-dd}.log</FileNamePattern>
             <maxHistory>60</maxHistory>
         </rollingPolicy>
         <encoder>
