@@ -18,7 +18,9 @@ import cn.zhiu.restful.api.user.bean.ChangePwd;
 import cn.zhiu.restful.api.user.exception.UserExistsException;
 import cn.zhiu.restful.api.user.exception.UserPasswordException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -35,6 +37,14 @@ public class UserInfoController extends AbstractBaseController {
 
     @Autowired
     private UserInfoApiService userInfoApiService;
+    @Value("${test.name}")
+    private String testName;
+
+
+    @RequestMapping(value = "/test", method = RequestMethod.GET)
+    public DataResponse<String> test() {
+        return new DataResponse<>("test Name:" + testName);
+    }
 
     /**
      * Register data response.
